@@ -74,13 +74,17 @@
             </intent-filter>
         </service>
 
+        <!-- CubeOS: nosensor, not "behind". With a third-party home this is the switcher, and
+             "behind" took the orientation of whatever app sat behind it: close the top card and
+             the next app (if it allowed rotation) turned the switcher sideways on a tilted phone,
+             after which swipes and taps missed every card. -->
         <activity android:name="com.android.quickstep.RecentsActivity"
              android:excludeFromRecents="true"
              android:launchMode="singleTask"
              android:clearTaskOnLaunch="true"
              android:stateNotNeeded="true"
              android:theme="@style/LauncherTheme"
-             android:screenOrientation="behind"
+             android:screenOrientation="nosensor"
              android:configChanges="keyboard|keyboardHidden|mcc|mnc|navigation|orientation|screenSize|screenLayout|smallestScreenSize|uiMode"
              android:resizeableActivity="true"
              android:resumeWhilePausing="true"
