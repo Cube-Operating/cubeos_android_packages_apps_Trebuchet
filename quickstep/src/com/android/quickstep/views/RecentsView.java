@@ -1160,6 +1160,9 @@ public abstract class RecentsView<
     public void init(OverviewActionsView actionsView, SplitSelectStateController splitController,
             @Nullable DesktopRecentsTransitionController desktopRecentsTransitionController) {
         mActionsView = actionsView;
+        // CubeOS: the action bar's Clear all does what the button after the last card does.
+        View clearAll = mActionsView.findViewById(R.id.action_clear_all);
+        if (clearAll != null) clearAll.setOnClickListener(this::dismissAllTasks);
         mActionsView.updateHiddenFlags(HIDDEN_NO_TASKS, getTaskViewCount() == 0);
         // Update flags for 1p/3p launchers
         mActionsView.updateFor3pLauncher(!supportsAppPairs());

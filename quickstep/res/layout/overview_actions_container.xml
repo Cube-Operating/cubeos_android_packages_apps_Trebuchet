@@ -35,6 +35,17 @@
             android:text="@string/action_screenshot"
             android:theme="@style/ThemeControlHighlightWorkspaceColor" />
 
+        <!-- CubeOS: Clear all within reach; the one after the oldest card took a fling past
+             every app to find. RecentsView.init wires it to dismissAllTasks. -->
+        <Button
+            android:id="@+id/action_clear_all"
+            style="@style/OverviewActionButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="@dimen/overview_actions_button_spacing"
+            android:text="@string/recents_clear_all"
+            android:theme="@style/ThemeControlHighlightWorkspaceColor" />
+
         <Button
             android:id="@+id/action_split"
             style="@style/OverviewActionButton"
