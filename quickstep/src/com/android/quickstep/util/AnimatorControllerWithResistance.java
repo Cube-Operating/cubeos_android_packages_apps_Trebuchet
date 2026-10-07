@@ -48,7 +48,10 @@ import com.android.quickstep.views.RecentsView;
 public class AnimatorControllerWithResistance {
 
     private enum RecentsResistanceParams {
-        FROM_APP(0.75f, 0.5f, 1f, false),
+        // CubeOS: phones resist down to 0.85 of the overview card (AOSP 0.5). The card follows the
+        // finger and settles into the switcher without shrinking to half and springing back,
+        // which read as a jump (worse with Cube Recents' larger cards).
+        FROM_APP(0.75f, 0.85f, 1f, false),
         FROM_APP_TABLET(1f, 0.7f, 1f, true),
         FROM_APP_TABLET_GRID_ONLY(1f, 1f, 1f, true),
         FROM_OVERVIEW(1f, 0.75f, 0.5f, false);
