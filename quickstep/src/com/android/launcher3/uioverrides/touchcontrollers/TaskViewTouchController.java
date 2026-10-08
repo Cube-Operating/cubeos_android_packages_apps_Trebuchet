@@ -106,8 +106,12 @@ public abstract class TaskViewTouchController<CONTAINER extends Context & Recent
             }
             return false;
         }
-        if (mCurrentAnimation != null) {
-            mCurrentAnimation.forceFinishIfCloseToEnd();
+        if (mCurrentAnimation != null && mCurrentAnimation.getAnimationPlayer().isRunning()) {
+            // CubeOS: a new touch always finishes the previous card's dismiss (or snap-back)
+            // at once, so the next swipe acts on the next card. Stock only finished it past 95%,
+            // and otherwise handed the new swipe to the old animation: on a janky frame rate,
+            // every other quick swipe closed nothing (or opened the app).
+            mCurrentAnimation.getAnimationPlayer().end();
         }
         if (mCurrentAnimation != null) {
             // If we are already animating from a previous state, we can intercept.
