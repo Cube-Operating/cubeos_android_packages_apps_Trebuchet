@@ -28,8 +28,8 @@ import android.view.WindowInsets;
 import com.android.launcher3.R;
 
 /**
- * CubeOS app-switcher chrome drawn over the carousel: a frosted "N apps open" pill at the top,
- * and under the cards a page indicator whose capsule glides with the carousel, with "i / n".
+ * CubeOS app-switcher chrome drawn over the deck: an "N apps open · i of N" caption under the
+ * status bar, and under the cards a page indicator whose capsule glides with the scroll.
  * Purely visual: it never takes touches. {@link RecentsView} feeds it the task count, the
  * centred card's fractional position and the y of the cards' bottom edge on every scroll frame.
  */
@@ -38,10 +38,7 @@ public class CubeCarouselIndicator extends View {
     private static final int MAX_DOTS = 9;
 
     private final float mDp;
-    private final Paint mGlass = new Paint(Paint.ANTI_ALIAS_FLAG);
-    private final Paint mGlassEdge = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint mLabel = new Paint(Paint.ANTI_ALIAS_FLAG);
-    private final Paint mCounter = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint mDot = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final RectF mRect = new RectF();
 
@@ -61,21 +58,13 @@ public class CubeCarouselIndicator extends View {
         setFocusable(false);
         setImportantForAccessibility(IMPORTANT_FOR_ACCESSIBILITY_NO);
 
-        mGlass.setColor(0x2EFFFFFF);
-        mGlassEdge.setStyle(Paint.Style.STROKE);
-        mGlassEdge.setStrokeWidth(mDp);
-        mGlassEdge.setColor(0x26FFFFFF);
         Typeface medium = Typeface.create("sans-serif-medium", Typeface.NORMAL);
         mLabel.setColor(0xF2FFFFFF);
-        mLabel.setTextSize(14 * getResources().getDisplayMetrics().scaledDensity);
+        mLabel.setTextSize(13 * getResources().getDisplayMetrics().scaledDensity);
         mLabel.setTypeface(medium);
         mLabel.setTextAlign(Paint.Align.CENTER);
         mLabel.setLetterSpacing(0.01f);
-        mCounter.setColor(0x99FFFFFF);
-        mCounter.setTextSize(12 * getResources().getDisplayMetrics().scaledDensity);
-        mCounter.setTypeface(medium);
-        mCounter.setTextAlign(Paint.Align.CENTER);
-        mCounter.setFontFeatureSettings("tnum");
+        mLabel.setFontFeatureSettings("tnum");
         mDot.setColor(0xFFFFFFFF);
     }
 
@@ -97,26 +86,21 @@ public class CubeCarouselIndicator extends View {
         if (mCount <= 0) return;
         float cx = getWidth() / 2f;
 
-        // ── "N apps open" pill ──
+        // ── caption just under the status bar, above the cards' app icons: "6 apps open · 2 of 6" ──
         int top = 0;
         WindowInsets insets = getRootWindowInsets();
         if (insets != null) {
             Insets bars = insets.getInsets(WindowInsets.Type.statusBars());
             top = bars.top;
         }
-        String label = getResources().getQuantityString(R.plurals.cube_carousel_apps_open, mCount, mCount);
-        float textW = mLabel.measureText(label);
-        float pillH = 34 * mDp;
-        float pillW = textW + 32 * mDp;
-        float pillTop = top + 14 * mDp;
-        mRect.set(cx - pillW / 2, pillTop, cx + pillW / 2, pillTop + pillH);
-        canvas.drawRoundRect(mRect, pillH / 2, pillH / 2, mGlass);
-        canvas.drawRoundRect(mRect, pillH / 2, pillH / 2, mGlassEdge);
+        int current = Math.max(1, Math.min(mCount, Math.round(mPosition) + 1));
+        String label = getResources().getQuantityString(R.plurals.cube_carousel_apps_open, mCount, mCount)
+                + (mCount > 1 ? "  ·  " + current + " of " + mCount : "");
         Paint.FontMetrics fm = mLabel.getFontMetrics();
-        canvas.drawText(label, cx, mRect.centerY() - (fm.ascent + fm.descent) / 2, mLabel);
+        canvas.drawText(label, cx, top + 6 * mDp - fm.ascent, mLabel);
 
         // ── page indicator: dots, the centred one stretched into a capsule ──
-        float y = mDotsY > 0 ? mDotsY + 22 * mDp : getHeight() - 150 * mDp;
+        float y = mDotsY > 0 ? mDotsY + 16 * mDp : getHeight() - 150 * mDp;
         int shown = Math.min(mCount, MAX_DOTS);
         int first = 0;
         if (mCount > MAX_DOTS) {
@@ -149,9 +133,6 @@ public class CubeCarouselIndicator extends View {
             x += w + gap;
         }
 
-        // ── "i / n" ──
-        int current = Math.max(1, Math.min(mCount, Math.round(mPosition) + 1));
-        canvas.drawText(current + " / " + mCount, cx, y + 26 * mDp, mCounter);
     }
 
     private static float ease(float t) {

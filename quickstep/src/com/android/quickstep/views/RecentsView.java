@@ -2467,45 +2467,51 @@ public abstract class RecentsView<
         boolean active = mOverviewStateEnabled && !mOverviewGridEnabled && !isSplitSelectionActive()
                 && isPageScrollsInitialized() && count > 0;
 
-        // Distance between two neighbouring cards' scroll positions.
+        // Measure the deck on screen: RecentsView lays its pages out right-to-left in LTR locales
+        // (newest on the right), so page order and scroll direction are not a reliable "left".
+        TaskView firstView = null;
         float spacing = 0;
-        int firstTask = -1;
+        int indexStep = 1; // +1: task index grows to the right on screen, -1: to the left
         for (int i = 0; i < getChildCount(); i++) {
-            if (!(getChildAt(i) instanceof TaskView)) continue;
-            if (firstTask < 0) {
-                firstTask = i;
+            if (!(getChildAt(i) instanceof TaskView tv)) continue;
+            if (firstView == null) {
+                firstView = tv;
             } else {
-                spacing = Math.abs(mPageScrolls[i] - mPageScrolls[firstTask]) / (float) (i - firstTask);
+                float delta = tv.getLeft() - firstView.getLeft();
+                spacing = Math.abs(delta);
+                indexStep = delta >= 0 ? 1 : -1;
                 break;
             }
         }
+        float viewportCentre = getScrollX() + getWidth() / 2f;
 
         float density = getResources().getDisplayMetrics().density;
-        float direction = mIsRtl ? -1f : 1f;
         float position = 0;
         float bestDistance = Float.MAX_VALUE;
         TaskView centred = null;
         int taskIndex = 0;
         for (int i = 0; i < getChildCount(); i++) {
             if (!(getChildAt(i) instanceof TaskView taskView)) continue;
-            // > 0: the card is d steps behind (older than) the focused one, < 0: newer.
-            float d = active && spacing > 0 ? (scroll - mPageScrolls[i]) * direction / spacing : 0f;
+            // d > 0: the card sits d steps LEFT of the centre (older, behind); d < 0: right (newer).
+            float cardCentre = taskView.getLeft() + taskView.getWidth() / 2f;
+            float d = active && spacing > 0 ? (viewportCentre - cardCentre) / spacing : 0f;
             if (Math.abs(d) < bestDistance) {
                 bestDistance = Math.abs(d);
                 centred = taskView;
-                // The card is d steps before the centre, so the centre is at its index + d.
-                position = taskIndex + d;
+                // The centre is d steps to this card's right: d steps along the index if indices
+                // grow to the right, against it if they grow to the left.
+                position = taskIndex + d * indexStep;
             }
             taskIndex++;
 
             float behind = Math.max(0f, Math.min(d, DECK_MAX_DEPTH));
-            // Pull the card from its page position (d spacings away) to its deck position.
+            // Pull a card behind the focused one from its page position to its deck slot (rightwards).
             float shift = (d - deckOffset(d)) * spacing;
             taskView.setCameraDistance(8000 * density);
             taskView.setRotationY(0f);
             taskView.setCarouselScale(active ? 1f - DECK_SCALE_STEP * behind : 1f);
-            taskView.setCarouselTranslationX(active ? shift * direction : 0f);
-            // Newer cards lie on top of older ones: Z falls steadily from right to left.
+            taskView.setCarouselTranslationX(active ? shift : 0f);
+            // Cards on the right lie on top of those to their left: Z falls from right to left.
             taskView.setTranslationZ(active ? Math.max(0f, (DECK_MAX_DEPTH - d)) * 3 * density : 0f);
         }
 
