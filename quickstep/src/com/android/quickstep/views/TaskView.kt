@@ -283,6 +283,25 @@ constructor(
             applyScale()
         }
 
+    /**
+     * CubeOS carousel: the extra scale and inward offset RecentsView.updateCurveProperties gives
+     * cards beside the centred one (with rotationY / translationZ), so the stack reads as a
+     * cover-flow carousel. Neutral (1, 0) for the centred card and outside overview.
+     */
+    var carouselScale = 1f
+        set(value) {
+            if (field == value) return
+            field = value
+            applyScale()
+        }
+
+    var carouselTranslationX = 0f
+        set(value) {
+            if (field == value) return
+            field = value
+            applyTranslationX()
+        }
+
     private var dismissTranslationX = 0f
         set(value) {
             field = value
@@ -1036,6 +1055,8 @@ constructor(
 
     /** Launch of the current task (both live and inactive tasks) with an animation. */
     fun launchWithAnimation(): RunnableList? {
+        // The launch animates from the card's flat bounds: drop the carousel tilt first.
+        rotationY = 0f
         return if (isRunningTask && recentsView?.remoteTargetHandles != null) {
             launchAsLiveTile()
         } else {
@@ -1517,7 +1538,7 @@ constructor(
     fun getSizeAdjustment(fullscreenEnabled: Boolean) = if (fullscreenEnabled) nonGridScale else 1f
 
     private fun applyScale() {
-        val scale = persistentScale * dismissScale
+        val scale = persistentScale * dismissScale * carouselScale
         scaleX = scale
         scaleY = scale
         updateFullscreenParams()
@@ -1533,6 +1554,7 @@ constructor(
 
     private fun applyTranslationX() {
         translationX =
+            carouselTranslationX +
             dismissTranslationX +
                 taskOffsetTranslationX +
                 taskResistanceTranslationX +

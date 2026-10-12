@@ -2430,6 +2430,80 @@ public abstract class RecentsView<
 
         // Clear all button alpha was set by the previous line.
         mActionsView.getIndexScrollAlpha().updateValue(1 - mClearAllButton.getScrollAlpha());
+        updateCubeCarousel(scroll);
+    }
+
+    // ── CubeOS carousel ──────────────────────────────────────────────────────────────────────────
+    // The cards read as a cover-flow carousel: the centred card flat and in front, its neighbours
+    // turned towards it, a little smaller and tucked in so more of the stack shows. Everything is a
+    // function of the scroll position, so it follows the finger and every fling exactly.
+    private static final float CAROUSEL_TILT_DEG = 16f;
+    private static final float CAROUSEL_SIDE_SCALE = 0.84f;
+    private static final float CAROUSEL_FAR_SCALE_STEP = 0.06f;
+    private static final float CAROUSEL_TUCK = 0.20f;
+    private static final float CAROUSEL_MAX_DISTANCE = 1.6f;
+    @Nullable private CubeCarouselIndicator mCarouselIndicator;
+    private boolean mCarouselIndicatorLookedUp;
+
+    private void updateCubeCarousel(int scroll) {
+        if (!mCarouselIndicatorLookedUp) {
+            mCarouselIndicatorLookedUp = true;
+            mCarouselIndicator = getRootView().findViewById(R.id.cube_carousel_indicator);
+        }
+        int count = getTaskViewCount();
+        boolean active = mOverviewStateEnabled && !mOverviewGridEnabled && !isSplitSelectionActive()
+                && isPageScrollsInitialized() && count > 0;
+
+        // Distance between two neighbouring cards' scroll positions.
+        float spacing = 0;
+        int firstTask = -1;
+        for (int i = 0; i < getChildCount(); i++) {
+            if (!(getChildAt(i) instanceof TaskView)) continue;
+            if (firstTask < 0) {
+                firstTask = i;
+            } else {
+                spacing = Math.abs(mPageScrolls[i] - mPageScrolls[firstTask]) / (float) (i - firstTask);
+                break;
+            }
+        }
+
+        float density = getResources().getDisplayMetrics().density;
+        float direction = mIsRtl ? -1f : 1f;
+        float position = 0;
+        float bestDistance = Float.MAX_VALUE;
+        TaskView centred = null;
+        int taskIndex = 0;
+        for (int i = 0; i < getChildCount(); i++) {
+            if (!(getChildAt(i) instanceof TaskView taskView)) continue;
+            // > 0: the card sits before the centre (left in LTR), < 0: after it.
+            float d = active && spacing > 0 ? (scroll - mPageScrolls[i]) * direction / spacing : 0f;
+            if (Math.abs(d) < bestDistance) {
+                bestDistance = Math.abs(d);
+                centred = taskView;
+                // The card is d steps before the centre, so the centre is at its index + d.
+                position = taskIndex + d;
+            }
+            taskIndex++;
+
+            float t = Math.min(Math.abs(d), CAROUSEL_MAX_DISTANCE);
+            float sign = Math.signum(d);
+            float scale = 1f - (1f - CAROUSEL_SIDE_SCALE) * Math.min(t, 1f)
+                    - CAROUSEL_FAR_SCALE_STEP * Math.max(t - 1f, 0f);
+            taskView.setCameraDistance(8000 * density);
+            taskView.setCarouselScale(active ? scale : 1f);
+            taskView.setCarouselTranslationX(active ? sign * direction * taskView.getWidth() * CAROUSEL_TUCK * t : 0f);
+            taskView.setRotationY(active ? sign * direction * CAROUSEL_TILT_DEG * Math.min(t, 1f) : 0f);
+            // The centred card draws on top of the tucked-in ones.
+            taskView.setTranslationZ(active ? (CAROUSEL_MAX_DISTANCE - t) * 6 * density : 0f);
+        }
+
+        if (mCarouselIndicator != null) {
+            mCarouselIndicator.setAlpha(active ? mContentAlpha : 0f);
+            if (active) {
+                float bottom = centred != null ? centred.getBottom() : -1;
+                mCarouselIndicator.update(count, Math.max(0f, Math.min(count - 1, position)), bottom);
+            }
+        }
     }
 
     @Override
