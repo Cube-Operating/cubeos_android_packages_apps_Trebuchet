@@ -2433,17 +2433,30 @@ public abstract class RecentsView<
         updateCubeCarousel(scroll);
     }
 
-    // ── CubeOS carousel ──────────────────────────────────────────────────────────────────────────
-    // The cards read as a cover-flow carousel: the centred card flat and in front, its neighbours
-    // turned towards it, a little smaller and tucked in so more of the stack shows. Everything is a
-    // function of the scroll position, so it follows the finger and every fling exactly.
-    private static final float CAROUSEL_TILT_DEG = 16f;
-    private static final float CAROUSEL_SIDE_SCALE = 0.84f;
-    private static final float CAROUSEL_FAR_SCALE_STEP = 0.06f;
-    private static final float CAROUSEL_TUCK = 0.20f;
-    private static final float CAROUSEL_MAX_DISTANCE = 1.6f;
+    // ── CubeOS app switcher: the iOS deck ───────────────────────────────────────────────────────
+    // Flat cards of one size, stacked like iOS's switcher: the focused app front and centre, older
+    // apps tucked behind it to the left, each showing a narrower slice the further back it is,
+    // newer apps on top at full spacing to the right. Back cards travel slower than the front one
+    // (parallax), so cards peel out from under each other as the deck is dragged. Depth comes from
+    // layering (translationZ, with the card outlines' soft shadows) and a slight shrink, never tilt.
+    // Everything is a function of the scroll position, so it tracks the finger and every fling.
+    /** Visible slice of a card behind the focused one, as a fraction of the normal page spacing. */
+    private static final float DECK_PEEK = 0.36f;
+    /** Further back, slices narrow again so a deep stack stays compact. */
+    private static final float DECK_PEEK_DEEP = 0.16f;
+    private static final float DECK_DEEP_FROM = 2f;
+    /** Shrink per card behind the focused one (iOS keeps them nearly the same size). */
+    private static final float DECK_SCALE_STEP = 0.035f;
+    private static final float DECK_MAX_DEPTH = 5f;
     @Nullable private CubeCarouselIndicator mCarouselIndicator;
     private boolean mCarouselIndicatorLookedUp;
+
+    /** Where a card [d] steps behind the focused one appears, in page spacings. */
+    private static float deckOffset(float d) {
+        if (d <= 0f) return d; // newer cards: normal spacing
+        if (d <= DECK_DEEP_FROM) return d * DECK_PEEK;
+        return DECK_DEEP_FROM * DECK_PEEK + (Math.min(d, DECK_MAX_DEPTH) - DECK_DEEP_FROM) * DECK_PEEK_DEEP;
+    }
 
     private void updateCubeCarousel(int scroll) {
         if (!mCarouselIndicatorLookedUp) {
@@ -2475,7 +2488,7 @@ public abstract class RecentsView<
         int taskIndex = 0;
         for (int i = 0; i < getChildCount(); i++) {
             if (!(getChildAt(i) instanceof TaskView taskView)) continue;
-            // > 0: the card sits before the centre (left in LTR), < 0: after it.
+            // > 0: the card is d steps behind (older than) the focused one, < 0: newer.
             float d = active && spacing > 0 ? (scroll - mPageScrolls[i]) * direction / spacing : 0f;
             if (Math.abs(d) < bestDistance) {
                 bestDistance = Math.abs(d);
@@ -2485,16 +2498,15 @@ public abstract class RecentsView<
             }
             taskIndex++;
 
-            float t = Math.min(Math.abs(d), CAROUSEL_MAX_DISTANCE);
-            float sign = Math.signum(d);
-            float scale = 1f - (1f - CAROUSEL_SIDE_SCALE) * Math.min(t, 1f)
-                    - CAROUSEL_FAR_SCALE_STEP * Math.max(t - 1f, 0f);
+            float behind = Math.max(0f, Math.min(d, DECK_MAX_DEPTH));
+            // Pull the card from its page position (d spacings away) to its deck position.
+            float shift = (d - deckOffset(d)) * spacing;
             taskView.setCameraDistance(8000 * density);
-            taskView.setCarouselScale(active ? scale : 1f);
-            taskView.setCarouselTranslationX(active ? sign * direction * taskView.getWidth() * CAROUSEL_TUCK * t : 0f);
-            taskView.setRotationY(active ? sign * direction * CAROUSEL_TILT_DEG * Math.min(t, 1f) : 0f);
-            // The centred card draws on top of the tucked-in ones.
-            taskView.setTranslationZ(active ? (CAROUSEL_MAX_DISTANCE - t) * 6 * density : 0f);
+            taskView.setRotationY(0f);
+            taskView.setCarouselScale(active ? 1f - DECK_SCALE_STEP * behind : 1f);
+            taskView.setCarouselTranslationX(active ? shift * direction : 0f);
+            // Newer cards lie on top of older ones: Z falls steadily from right to left.
+            taskView.setTranslationZ(active ? Math.max(0f, (DECK_MAX_DEPTH - d)) * 3 * density : 0f);
         }
 
         if (mCarouselIndicator != null) {
