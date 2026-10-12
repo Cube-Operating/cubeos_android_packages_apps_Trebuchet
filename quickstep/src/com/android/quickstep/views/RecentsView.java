@@ -2518,8 +2518,25 @@ public abstract class RecentsView<
         if (mCarouselIndicator != null) {
             mCarouselIndicator.setAlpha(active ? mContentAlpha : 0f);
             if (active) {
-                float bottom = centred != null ? centred.getBottom() : -1;
-                mCarouselIndicator.update(count, Math.max(0f, Math.min(count - 1, position)), bottom);
+                // Dots sit in the gap between the cards and the action row (Screenshot · Clear all),
+                // never over the row's labels.
+                float dotsY = -1;
+                if (centred != null) {
+                    float cardBottom = centred.getBottom();
+                    View buttons = mActionsView.findViewById(R.id.action_buttons);
+                    if (buttons != null && buttons.isShown()) {
+                        int[] me = new int[2];
+                        int[] row = new int[2];
+                        getLocationInWindow(me);
+                        buttons.getLocationInWindow(row);
+                        float rowTop = row[1] - me[1];
+                        dotsY = rowTop > cardBottom + 12 * density
+                                ? (cardBottom + rowTop) / 2f : cardBottom + 12 * density;
+                    } else {
+                        dotsY = cardBottom + 20 * density;
+                    }
+                }
+                mCarouselIndicator.update(count, Math.max(0f, Math.min(count - 1, position)), dotsY);
             }
         }
     }

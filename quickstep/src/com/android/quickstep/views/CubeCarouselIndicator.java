@@ -71,7 +71,7 @@ public class CubeCarouselIndicator extends View {
     /**
      * @param count    tasks in the carousel
      * @param position fractional index of the centred task (0 = first page)
-     * @param dotsY    y (in this view) just below the centred card, or -1 to use the default
+     * @param dotsY    centre line (in this view) for the dots, or -1 to use the default
      */
     public void update(int count, float position, float dotsY) {
         if (count == mCount && position == mPosition && dotsY == mDotsY) return;
@@ -100,7 +100,7 @@ public class CubeCarouselIndicator extends View {
         canvas.drawText(label, cx, top + 6 * mDp - fm.ascent, mLabel);
 
         // ── page indicator: dots, the centred one stretched into a capsule ──
-        float y = mDotsY > 0 ? mDotsY + 16 * mDp : getHeight() - 150 * mDp;
+        float y = mDotsY > 0 ? mDotsY : getHeight() - 150 * mDp;
         int shown = Math.min(mCount, MAX_DOTS);
         int first = 0;
         if (mCount > MAX_DOTS) {
