@@ -1,8 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<!-- CubeOS app-switcher carousel (CubeCarouselIndicator). -->
-<resources>
-    <plurals name="cube_carousel_apps_open">
-        <item quantity="one">%d app open</item>
-        <item quantity="other">%d apps open</item>
-    </plurals>
-</resources>

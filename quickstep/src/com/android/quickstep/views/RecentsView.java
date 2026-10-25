@@ -850,6 +850,10 @@ public abstract class RecentsView<
             BaseContainerInterface sizeStrategy) {
         super(context, attrs, defStyleAttr);
         setEnableFreeScroll(true);
+        // CubeOS: a flick through the cards travels a few cards and settles, like a deck, rather
+        // than gliding as far as a list does (stock friction 0.015 ≈ iOS list deceleration 0.998;
+        // iOS's app switcher uses 0.993, ~3.5× shorter; 0.06 gives ~2.8× shorter).
+        mScroller.setFriction(0.06f);
 
         mSizeStrategy = sizeStrategy;
         mContainer = RecentsViewContainer.containerFromContext(context);
@@ -1160,9 +1164,10 @@ public abstract class RecentsView<
     public void init(OverviewActionsView actionsView, SplitSelectStateController splitController,
             @Nullable DesktopRecentsTransitionController desktopRecentsTransitionController) {
         mActionsView = actionsView;
-        // CubeOS: the action bar's Clear all does what the button after the last card does.
-        View clearAll = mActionsView.findViewById(R.id.action_clear_all);
-        if (clearAll != null) clearAll.setOnClickListener(this::dismissAllTasks);
+        // CubeOS: nothing under the cards, as on iOS (owner's choice): apps close by swiping their
+        // card up. The row (Screenshot, Clear all) stays out of layout and out of reach.
+        View actionButtons = mActionsView.findViewById(R.id.action_buttons);
+        if (actionButtons != null) actionButtons.setVisibility(GONE);
         mActionsView.updateHiddenFlags(HIDDEN_NO_TASKS, getTaskViewCount() == 0);
         // Update flags for 1p/3p launchers
         mActionsView.updateFor3pLauncher(!supportsAppPairs());
@@ -2440,22 +2445,34 @@ public abstract class RecentsView<
     // (parallax), so cards peel out from under each other as the deck is dragged. Depth comes from
     // layering (translationZ, with the card outlines' soft shadows) and a slight shrink, never tilt.
     // Everything is a function of the scroll position, so it tracks the finger and every fling.
-    /** Visible slice of a card behind the focused one, as a fraction of the normal page spacing. */
-    private static final float DECK_PEEK = 0.36f;
-    /** Further back, slices narrow again so a deep stack stays compact. */
-    private static final float DECK_PEEK_DEEP = 0.16f;
-    private static final float DECK_DEEP_FROM = 2f;
-    /** Shrink per card behind the focused one (iOS keeps them nearly the same size). */
-    private static final float DECK_SCALE_STEP = 0.035f;
+    // Measured from iOS 26's switcher: each card back shows 0.34 of the slice in front of it
+    // (221 → 74 → 25 pt on a 430 pt screen), is ~2.5 % smaller, and a little darker.
+    /** Each card behind shows this fraction of the slice of the card in front of it. */
+    private static final float DECK_RATIO = 0.34f;
+    /** Shrink per card behind the focused one. */
+    private static final float DECK_SCALE_STEP = 0.025f;
+    /** Dim per card behind the focused one, up to {@link #DECK_MAX_DIM}. */
+    private static final float DECK_DIM_STEP = 0.08f;
+    private static final float DECK_MAX_DIM = 0.3f;
     private static final float DECK_MAX_DEPTH = 5f;
+    private static final int DECK_MAX_LABELS = 12;
+    private final float[] mDeckLabelX = new float[DECK_MAX_LABELS];
+    private final float[] mDeckLabelY = new float[DECK_MAX_LABELS];
+    private final float[] mDeckLabelAlpha = new float[DECK_MAX_LABELS];
+    private final float[] mDeckLabelWidth = new float[DECK_MAX_LABELS];
+    private final CharSequence[] mDeckLabelText = new CharSequence[DECK_MAX_LABELS];
+    private final int[] mDeckLocation = new int[2];
     @Nullable private CubeCarouselIndicator mCarouselIndicator;
     private boolean mCarouselIndicatorLookedUp;
 
-    /** Where a card [d] steps behind the focused one appears, in page spacings. */
+    /**
+     * Where a card [d] steps behind the focused one appears, in page spacings: the slices form a
+     * geometric series (r + r² + …), continuous in d so cards peel out smoothly while dragging.
+     */
     private static float deckOffset(float d) {
         if (d <= 0f) return d; // newer cards: normal spacing
-        if (d <= DECK_DEEP_FROM) return d * DECK_PEEK;
-        return DECK_DEEP_FROM * DECK_PEEK + (Math.min(d, DECK_MAX_DEPTH) - DECK_DEEP_FROM) * DECK_PEEK_DEEP;
+        d = Math.min(d, DECK_MAX_DEPTH);
+        return DECK_RATIO * (1f - (float) Math.pow(DECK_RATIO, d)) / (1f - DECK_RATIO);
     }
 
     private void updateCubeCarousel(int scroll) {
@@ -2471,7 +2488,6 @@ public abstract class RecentsView<
         // (newest on the right), so page order and scroll direction are not a reliable "left".
         TaskView firstView = null;
         float spacing = 0;
-        int indexStep = 1; // +1: task index grows to the right on screen, -1: to the left
         for (int i = 0; i < getChildCount(); i++) {
             if (!(getChildAt(i) instanceof TaskView tv)) continue;
             if (firstView == null) {
@@ -2479,31 +2495,18 @@ public abstract class RecentsView<
             } else {
                 float delta = tv.getLeft() - firstView.getLeft();
                 spacing = Math.abs(delta);
-                indexStep = delta >= 0 ? 1 : -1;
                 break;
             }
         }
         float viewportCentre = getScrollX() + getWidth() / 2f;
 
         float density = getResources().getDisplayMetrics().density;
-        float position = 0;
-        float bestDistance = Float.MAX_VALUE;
-        TaskView centred = null;
-        int taskIndex = 0;
+        int labels = 0;
         for (int i = 0; i < getChildCount(); i++) {
             if (!(getChildAt(i) instanceof TaskView taskView)) continue;
             // d > 0: the card sits d steps LEFT of the centre (older, behind); d < 0: right (newer).
             float cardCentre = taskView.getLeft() + taskView.getWidth() / 2f;
             float d = active && spacing > 0 ? (viewportCentre - cardCentre) / spacing : 0f;
-            if (Math.abs(d) < bestDistance) {
-                bestDistance = Math.abs(d);
-                centred = taskView;
-                // The centre is d steps to this card's right: d steps along the index if indices
-                // grow to the right, against it if they grow to the left.
-                position = taskIndex + d * indexStep;
-            }
-            taskIndex++;
-
             float behind = Math.max(0f, Math.min(d, DECK_MAX_DEPTH));
             // Pull a card behind the focused one from its page position to its deck slot (rightwards).
             float shift = (d - deckOffset(d)) * spacing;
@@ -2513,31 +2516,44 @@ public abstract class RecentsView<
             taskView.setCarouselTranslationX(active ? shift : 0f);
             // Cards on the right lie on top of those to their left: Z falls from right to left.
             taskView.setTranslationZ(active ? Math.max(0f, (DECK_MAX_DEPTH - d)) * 3 * density : 0f);
+            taskView.setDeckDim(active ? Math.min(DECK_MAX_DIM, DECK_DIM_STEP * behind) : 0f);
+            if (active && labels < DECK_MAX_LABELS) {
+                // The app's name beside its icon above the card; it fades as the card tucks behind
+                // the one in front (gone one step back), as on iOS.
+                float alpha = 1f - Math.max(0f, d) * 1.4f;
+                View icon = taskView.getTaskContainers().isEmpty()
+                        ? null : taskView.getTaskContainers().get(0).getIconView().asView();
+                if (alpha > 0.01f && icon != null && icon.getWidth() > 0) {
+                    float s = taskView.getScaleX();
+                    float px = taskView.getPivotX(), py = taskView.getPivotY();
+                    float left = taskView.getLeft() - getScrollX() + taskView.getTranslationX();
+                    float top = taskView.getTop() + taskView.getTranslationY();
+                    mDeckLabelX[labels] = left + px + (icon.getRight() - px) * s + 8 * density * s;
+                    mDeckLabelY[labels] = top + py + ((icon.getTop() + icon.getBottom()) / 2f - py) * s;
+                    mDeckLabelAlpha[labels] = Math.min(1f, alpha) * mContentAlpha;
+                    mDeckLabelWidth[labels] = taskView.getWidth() * s * 0.62f;
+                    mDeckLabelText[labels] = taskView.getFirstTask().title;
+                    labels++;
+                }
+            }
         }
 
         if (mCarouselIndicator != null) {
-            mCarouselIndicator.setAlpha(active ? mContentAlpha : 0f);
+            mCarouselIndicator.setAlpha(active ? 1f : 0f);
             if (active) {
-                // Dots sit in the gap between the cards and the action row (Screenshot · Clear all),
-                // never over the row's labels.
-                float dotsY = -1;
-                if (centred != null) {
-                    float cardBottom = centred.getBottom();
-                    View buttons = mActionsView.findViewById(R.id.action_buttons);
-                    if (buttons != null && buttons.isShown()) {
-                        int[] me = new int[2];
-                        int[] row = new int[2];
-                        getLocationInWindow(me);
-                        buttons.getLocationInWindow(row);
-                        float rowTop = row[1] - me[1];
-                        dotsY = rowTop > cardBottom + 12 * density
-                                ? (cardBottom + rowTop) / 2f : cardBottom + 12 * density;
-                    } else {
-                        dotsY = cardBottom + 20 * density;
-                    }
+                // Labels were measured in this view; the overlay may sit elsewhere in the window.
+                getLocationInWindow(mDeckLocation);
+                float ox = mDeckLocation[0], oy = mDeckLocation[1];
+                mCarouselIndicator.getLocationInWindow(mDeckLocation);
+                ox -= mDeckLocation[0];
+                oy -= mDeckLocation[1];
+                for (int i = 0; i < labels; i++) {
+                    mDeckLabelX[i] += ox;
+                    mDeckLabelY[i] += oy;
                 }
-                mCarouselIndicator.update(count, Math.max(0f, Math.min(count - 1, position)), dotsY);
             }
+            mCarouselIndicator.setLabels(active ? labels : 0, mDeckLabelX, mDeckLabelY,
+                    mDeckLabelAlpha, mDeckLabelWidth, mDeckLabelText);
         }
     }
 

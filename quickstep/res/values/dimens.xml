@@ -38,15 +38,16 @@
              tablet app to Overview carousel -->
     <item name="overview_carousel_min_scale" format="float" type="dimen">0.46</item>
     <!--  A touch target for icons, sometimes slightly larger than the icons themselves  -->
-    <dimen name="task_thumbnail_icon_size">48dp</dimen>
+    <!-- CubeOS: iOS's switcher icon proportions (29 pt on a 287 pt card). Stock: 48 / 44 / 16 dp. -->
+    <dimen name="task_thumbnail_icon_size">32dp</dimen>
     <!--  The icon size for the focused task, placed in center of touch target  -->
-    <dimen name="task_thumbnail_icon_drawable_size">44dp</dimen>
+    <dimen name="task_thumbnail_icon_drawable_size">26dp</dimen>
     <!--  The splash icon size on in Overview when a task is settled in the list -->
     <dimen name="task_thumbnail_splash_icon_size">52dp</dimen>
     <!--  The border width shown when task is hovered  -->
     <dimen name="task_hover_border_width">4dp</dimen>
     <!--  The space under the focused task icon  -->
-    <dimen name="overview_task_margin">16dp</dimen>
+    <dimen name="overview_task_margin">8dp</dimen>
     <!--  The horizontal space between tasks  -->
     <dimen name="overview_page_spacing">16dp</dimen>
     <!--  The collapsed max width of the icon menu text  -->

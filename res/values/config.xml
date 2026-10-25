@@ -96,12 +96,17 @@
     <bool name="config_enableTaskSnapshotPreloading">true</bool>
 
     <!-- Configuration resources -->
-    <item name="dismiss_task_trans_y_damping_ratio" type="dimen" format="float">0.73</item>
-    <item name="dismiss_task_trans_y_stiffness" type="dimen" format="float">800</item>
+    <!-- CubeOS: a swiped-away card leaves without a bounce in a quarter second (response 0.25 s,
+         damping 1), as the card's fade does. Stock: 0.73 / 800. -->
+    <item name="dismiss_task_trans_y_damping_ratio" type="dimen" format="float">1</item>
+    <item name="dismiss_task_trans_y_stiffness" type="dimen" format="float">632</item>
 
-    <item name="swipe_up_rect_scale_damping_ratio" type="dimen" format="float">0.75</item>
-    <item name="swipe_up_rect_scale_stiffness" type="dimen" format="float">200</item>
-    <item name="swipe_up_rect_scale_higher_stiffness" type="dimen" format="float">400</item>
+    <!-- CubeOS: the window flying home moves on Cube Motion's settle spring (response 0.38 s,
+         damping 0.85: stiffness = (2π / 0.38)² ≈ 273), the same as Cube Home's panels; the higher
+         stiffness is Cube Motion's dismiss (0.28 s ≈ 504). -->
+    <item name="swipe_up_rect_scale_damping_ratio" type="dimen" format="float">0.85</item>
+    <item name="swipe_up_rect_scale_stiffness" type="dimen" format="float">273</item>
+    <item name="swipe_up_rect_scale_higher_stiffness" type="dimen" format="float">504</item>
     <!-- Flag: enableScalingRevealHomeAnimation() -->
     <item name="swipe_up_rect_scale_damping_ratio_v2" type="dimen" format="float">0.99</item>
     <item name="swipe_up_rect_scale_stiffness_v2" type="dimen" format="float">500</item>
@@ -110,8 +115,9 @@
 
     <item name="swipe_up_scale_start"  type="dimen" format="float">0.88</item>
 
-    <item name="swipe_up_rect_xy_damping_ratio" type="dimen" format="float">0.8</item>
-    <item name="swipe_up_rect_xy_stiffness" type="dimen" format="float">200</item>
+    <!-- CubeOS: Cube Motion's settle, as above. -->
+    <item name="swipe_up_rect_xy_damping_ratio" type="dimen" format="float">0.85</item>
+    <item name="swipe_up_rect_xy_stiffness" type="dimen" format="float">273</item>
     <!-- Flag: enableScalingRevealHomeAnimation() -->
     <item name="swipe_up_rect_x_damping_ratio" type="dimen" format="float">0.965</item>
     <item name="swipe_up_rect_x_stiffness" type="dimen" format="float">450</item>

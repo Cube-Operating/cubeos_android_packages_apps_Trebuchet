@@ -20,6 +20,7 @@ import static android.content.Intent.EXTRA_COMPONENT_NAME;
 import static android.content.Intent.EXTRA_USER;
 
 import static com.android.app.animation.Interpolators.ACCELERATE;
+import static com.android.app.animation.Interpolators.DECELERATE;
 import static com.android.launcher3.GestureNavContract.EXTRA_GESTURE_CONTRACT;
 import static com.android.launcher3.GestureNavContract.EXTRA_ICON_POSITION;
 import static com.android.launcher3.GestureNavContract.EXTRA_ICON_SURFACE;
@@ -327,18 +328,20 @@ public class FallbackSwipeHandler extends
         @Override
         public void playAtomicAnimation(float velocity) {
             ObjectAnimator alphaAnim = mHomeAlpha.animateToValue(mHomeAlpha.value, 1);
-            alphaAnim.setDuration(mDuration).setInterpolator(ACCELERATE);
+            // CubeOS: Cube Home shows almost at once behind the shrinking app (as on iOS); an
+            // accelerating fade kept it dark until the end of the gesture.
+            alphaAnim.setDuration(mDuration).setInterpolator(DECELERATE);
             alphaAnim.start();
 
             if (mRunningOverHome) {
-                // Spring back launcher scale
+                // Spring back launcher scale, on Cube Motion's lively spring (0.28 s, 0.6).
                 new SpringAnimationBuilder(mContext)
                         .setStartValue(mVerticalShiftForScale.value)
                         .setEndValue(0)
                         .setStartVelocity(-velocity / mTransitionDragLength)
                         .setMinimumVisibleChange(1f / mDp.heightPx)
                         .setDampingRatio(0.6f)
-                        .setStiffness(800)
+                        .setStiffness(504)
                         .build(mVerticalShiftForScale, AnimatedFloat.VALUE)
                         .start();
             }

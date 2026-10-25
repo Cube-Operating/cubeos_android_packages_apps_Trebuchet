@@ -641,9 +641,14 @@ public class PortraitPagedViewHandler extends DefaultPagedViewHandler implements
     @Override
     public void setTaskIconParams(FrameLayout.LayoutParams iconParams, int taskIconMargin,
             int taskIconHeight, int thumbnailTopMargin, boolean isRtl) {
-        iconParams.gravity = TOP | CENTER_HORIZONTAL;
+        // CubeOS: the icon sits at the card's leading edge with the app's name after it
+        // (CubeCarouselIndicator), as iOS's switcher shows it: the icon's drawable 1.17 icon widths
+        // in from the card's edge (34 pt for a 29 pt icon); its 32 dp touch target holds a 26 dp
+        // drawable, hence 0.85 of the target here.
+        iconParams.gravity = TOP | START;
         // Reset margins, since they may have been set on rotation
         iconParams.leftMargin = iconParams.rightMargin = 0;
+        iconParams.setMarginStart(Math.round(taskIconHeight * 0.85f));
         iconParams.topMargin = iconParams.bottomMargin = 0;
     }
 

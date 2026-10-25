@@ -48,7 +48,7 @@
             android:clipToPadding="false"
             android:outlineProvider="none" />
 
-        <!-- CubeOS: "N apps open" and the carousel's page indicator (drawn only, no touches). -->
+        <!-- CubeOS: each app's name beside its icon above its card (drawn only, no touches). -->
         <com.android.quickstep.views.CubeCarouselIndicator
             android:id="@+id/cube_carousel_indicator"
             android:layout_width="match_parent"

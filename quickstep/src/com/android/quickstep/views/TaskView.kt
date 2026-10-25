@@ -33,6 +33,9 @@ import android.util.Log
 import android.view.Display
 import android.view.LayoutInflater
 import android.view.MotionEvent
+import androidx.dynamicanimation.animation.FloatValueHolder
+import androidx.dynamicanimation.animation.SpringAnimation
+import androidx.dynamicanimation.animation.SpringForce
 import android.view.View
 import android.view.View.OnClickListener
 import android.view.ViewGroup
@@ -284,6 +287,30 @@ constructor(
         }
 
     /**
+     * CubeOS: the card gives a little under the finger and springs back with a small rebound on
+     * release (Cube Motion's press: 0.16 s down; release 0.28 s at damping 0.55).
+     */
+    private var pressScale = 1f
+        set(value) {
+            field = value
+            applyScale()
+        }
+
+    private val pressSpring by lazy {
+        SpringAnimation(FloatValueHolder(1f)).apply {
+            spring = SpringForce(1f)
+            addUpdateListener { _, value, _ -> pressScale = value }
+        }
+    }
+
+    private fun press(down: Boolean) {
+        pressSpring.spring
+            .setDampingRatio(if (down) 0.7f else 0.55f)
+            .setStiffness(if (down) 1542f else 504f)
+        pressSpring.animateToFinalPosition(if (down) 0.97f else 1f)
+    }
+
+    /**
      * CubeOS carousel: the extra scale and inward offset RecentsView.updateCurveProperties gives
      * cards beside the centred one (with rotationY / translationZ), so the stack reads as a
      * cover-flow carousel. Neutral (1, 0) for the centred card and outside overview.
@@ -301,6 +328,25 @@ constructor(
             field = value
             applyTranslationX()
         }
+
+    /**
+     * CubeOS deck: how much a card tucked behind the focused one is dimmed (0..1). Kept apart from
+     * [setColorTint] (the modal tint while a card's menu is open); the snapshot shows the larger.
+     */
+    var deckDim = 0f
+        set(value) {
+            if (field == value) return
+            field = value
+            applySnapshotDim()
+        }
+
+    private var colorTintAmount = 0f
+
+    private fun applySnapshotDim() {
+        if (enableRefactorTaskThumbnail()) return
+        val dim = maxOf(colorTintAmount, deckDim)
+        taskContainers.forEach { it.thumbnailViewDeprecated.dimAlpha = dim }
+    }
 
     private var dismissTranslationX = 0f
         set(value) {
@@ -598,6 +644,10 @@ constructor(
                 x = ev.x
                 y = ev.y
             }
+        }
+        when (ev.actionMasked) {
+            MotionEvent.ACTION_DOWN -> press(true)
+            MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> press(false)
         }
         return super.dispatchTouchEvent(ev)
     }
@@ -1492,10 +1542,9 @@ constructor(
 
     /** Set a color tint on the snapshot and supporting views. */
     open fun setColorTint(amount: Float, tintColor: Int) {
+        colorTintAmount = amount
+        applySnapshotDim()
         taskContainers.forEach {
-            if (!enableRefactorTaskThumbnail()) {
-                it.thumbnailViewDeprecated.dimAlpha = amount
-            }
             it.iconView.setIconColorTint(tintColor, amount)
             it.digitalWellBeingToast?.setColorTint(tintColor, amount)
         }
@@ -1538,7 +1587,7 @@ constructor(
     fun getSizeAdjustment(fullscreenEnabled: Boolean) = if (fullscreenEnabled) nonGridScale else 1f
 
     private fun applyScale() {
-        val scale = persistentScale * dismissScale * carouselScale
+        val scale = persistentScale * dismissScale * carouselScale * pressScale
         scaleX = scale
         scaleY = scale
         updateFullscreenParams()
