@@ -1026,6 +1026,8 @@ constructor(
 
     protected open fun onIconLoaded(taskContainer: TaskContainer) {
         setIcon(taskContainer.iconView, taskContainer.task.icon)
+        // CubeOS: the deck's app names come with the title; place them now, not on the next scroll.
+        recentsView?.updateCurveProperties()
         if (enableOverviewIconMenu()) {
             setText(taskContainer.iconView, taskContainer.task.title)
         }

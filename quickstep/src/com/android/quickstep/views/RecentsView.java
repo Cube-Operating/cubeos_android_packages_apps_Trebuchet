@@ -90,6 +90,7 @@ import android.app.WindowConfiguration;
 import android.content.Context;
 import android.content.Intent;
 import android.content.LocusId;
+import android.content.pm.PackageManager;
 import android.content.res.Configuration;
 import android.graphics.Bitmap;
 import android.graphics.BlendMode;
@@ -1166,8 +1167,11 @@ public abstract class RecentsView<
         mActionsView = actionsView;
         // CubeOS: nothing under the cards, as on iOS (owner's choice): apps close by swiping their
         // card up. The row (Screenshot, Clear all) stays out of layout and out of reach.
-        View actionButtons = mActionsView.findViewById(R.id.action_buttons);
-        if (actionButtons != null) actionButtons.setVisibility(GONE);
+        // The row's own visibility follows its alpha (MultiValueAlpha), so hide the buttons in it.
+        for (int id : new int[] {R.id.action_screenshot, R.id.action_clear_all}) {
+            View button = mActionsView.findViewById(id);
+            if (button != null) button.setVisibility(GONE);
+        }
         mActionsView.updateHiddenFlags(HIDDEN_NO_TASKS, getTaskViewCount() == 0);
         // Update flags for 1p/3p launchers
         mActionsView.updateFor3pLauncher(!supportsAppPairs());
@@ -2462,6 +2466,8 @@ public abstract class RecentsView<
     private final float[] mDeckLabelWidth = new float[DECK_MAX_LABELS];
     private final CharSequence[] mDeckLabelText = new CharSequence[DECK_MAX_LABELS];
     private final int[] mDeckLocation = new int[2];
+    private final java.util.HashMap<String, CharSequence> mDeckAppLabels = new java.util.HashMap<>();
+    private int mDeckLabelLogged = -1;
     @Nullable private CubeCarouselIndicator mCarouselIndicator;
     private boolean mCarouselIndicatorLookedUp;
 
@@ -2473,6 +2479,24 @@ public abstract class RecentsView<
         if (d <= 0f) return d; // newer cards: normal spacing
         d = Math.min(d, DECK_MAX_DEPTH);
         return DECK_RATIO * (1f - (float) Math.pow(DECK_RATIO, d)) / (1f - DECK_RATIO);
+    }
+
+    /** An app's name for the deck: its task's title, or its app label until that has loaded. */
+    private CharSequence deckLabel(Task task) {
+        if (task.title != null && !task.title.isEmpty()) return task.title;
+        String pkg = task.key.getPackageName();
+        if (pkg == null) return null;
+        CharSequence label = mDeckAppLabels.get(pkg);
+        if (label == null) {
+            try {
+                PackageManager pm = getContext().getPackageManager();
+                label = pm.getApplicationLabel(pm.getApplicationInfo(pkg, 0));
+            } catch (PackageManager.NameNotFoundException e) {
+                label = "";
+            }
+            mDeckAppLabels.put(pkg, label);
+        }
+        return label;
     }
 
     private void updateCubeCarousel(int scroll) {
@@ -2532,7 +2556,7 @@ public abstract class RecentsView<
                     mDeckLabelY[labels] = top + py + ((icon.getTop() + icon.getBottom()) / 2f - py) * s;
                     mDeckLabelAlpha[labels] = Math.min(1f, alpha) * mContentAlpha;
                     mDeckLabelWidth[labels] = taskView.getWidth() * s * 0.62f;
-                    mDeckLabelText[labels] = taskView.getFirstTask().title;
+                    mDeckLabelText[labels] = deckLabel(taskView.getFirstTask());
                     labels++;
                 }
             }
@@ -2551,6 +2575,14 @@ public abstract class RecentsView<
                     mDeckLabelX[i] += ox;
                     mDeckLabelY[i] += oy;
                 }
+            }
+            if (active && labels != mDeckLabelLogged) {
+                // One line per change in how many names are shown, for diagnosing the deck.
+                mDeckLabelLogged = labels;
+                Log.d(TAG, "CubeDeck: " + count + " cards, " + labels + " names"
+                        + (labels > 0 ? ", first '" + mDeckLabelText[0] + "' at "
+                        + Math.round(mDeckLabelX[0]) + "," + Math.round(mDeckLabelY[0])
+                        + " alpha " + mDeckLabelAlpha[0] : ""));
             }
             mCarouselIndicator.setLabels(active ? labels : 0, mDeckLabelX, mDeckLabelY,
                     mDeckLabelAlpha, mDeckLabelWidth, mDeckLabelText);

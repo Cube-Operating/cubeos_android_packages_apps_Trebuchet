@@ -96,9 +96,10 @@
     <bool name="config_enableTaskSnapshotPreloading">true</bool>
 
     <!-- Configuration resources -->
-    <!-- CubeOS: a swiped-away card leaves without a bounce in a quarter second (response 0.25 s,
-         damping 1), as the card's fade does. Stock: 0.73 / 800. -->
-    <item name="dismiss_task_trans_y_damping_ratio" type="dimen" format="float">1</item>
+    <!-- CubeOS: a swiped-away card leaves without a visible bounce in a quarter second (response
+         0.25 s), as the card's fade does. Launcher's springs need damping below 1, hence 0.99.
+         Stock: 0.73 / 800. -->
+    <item name="dismiss_task_trans_y_damping_ratio" type="dimen" format="float">0.99</item>
     <item name="dismiss_task_trans_y_stiffness" type="dimen" format="float">632</item>
 
     <!-- CubeOS: the window flying home moves on Cube Motion's settle spring (response 0.38 s,
